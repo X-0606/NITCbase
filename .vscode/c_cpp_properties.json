@@ -1,0 +1,27 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/define",
+                "${workspaceFolder}/Algebra",
+                "${workspaceFolder}/BlockAccess",
+                "${workspaceFolder}/BPlusTree",
+                "${workspaceFolder}/Buffer",
+                "${workspaceFolder}/Cache",
+                "${workspaceFolder}/Disk_Class",
+                "${workspaceFolder}/Frontend",
+                "${workspaceFolder}/FrontendInterface",
+                "${workspaceFolder}/Schema"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "forcedInclude": []
+        }
+    ],
+    "version": 4
+}
