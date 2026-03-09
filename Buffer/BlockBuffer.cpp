@@ -56,6 +56,16 @@ int BlockBuffer::loadBlockAndGetBufferPtr(unsigned char **buffPtr) {
   // check whether the block is already present in the buffer using StaticBuffer.getBufferNum()
   int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
 
+  if(bufferNum!=E_BLOCKNOTINBUFFER){
+    StaticBuffer::metainfo[bufferNum].timeStamp=0;
+    for(int i=0;i<BUFFER_CAPACITY;i++){
+      if(i!=bufferNum){
+      if(StaticBuffer::metainfo[i].free==false){
+        StaticBuffer::metainfo[i].timeStamp++;
+      }
+    } }
+  }
+
   if (bufferNum == E_BLOCKNOTINBUFFER) {
     bufferNum = StaticBuffer::getFreeBuffer(this->blockNum);
 
@@ -126,4 +136,53 @@ int compareAttrs(union Attribute attr1, union Attribute attr2, int attrType) {
     if diff < 0 then return -1
     if diff = 0 then return 0
     */
+}
+
+int RecBuffer::setRecord(union Attribute *rec, int slotNum) {
+    unsigned char *bufferPtr;
+    /* get the starting address of the buffer containing the block
+       using loadBlockAndGetBufferPtr(&bufferPtr). */
+      int status= loadBlockAndGetBufferPtr(&bufferPtr);
+
+    // if loadBlockAndGetBufferPtr(&bufferPtr) != SUCCESS
+        // return the value returned by the call.
+
+        if(status!=SUCCESS){
+          return status;
+        }
+        
+
+    /* get the header of the block using the getHeader() function */
+    HeadInfo head;
+    getHeader(&head);
+
+    // get number of attributes in the block.
+    int noattrs=head.numAttrs;
+
+    // get the number of slots in the block.
+    int slots=head.numSlots;
+    if(slotNum>=slots){
+      return E_OUTOFBOUND;
+    }
+
+    // if input slotNum is not in the permitted range return E_OUTOFBOUND.
+
+    /* offset bufferPtr to point to the beginning of the record at required
+       slot. the block contains the header, the slotmap, followed by all
+       the records. so, for example,
+       record at slot x will be at bufferPtr + HEADER_SIZE + (x*recordSize)
+       copy the record from `rec` to buffer using memcpy
+       (hint: a record will be of size ATTR_SIZE * numAttrs)
+    */
+   memcpy(bufferPtr+HEADER_SIZE+head.numSlots+(slotNum*(16*noattrs)),rec,16*noattrs);
+
+    // update dirty bit using setDirtyBit()
+    StaticBuffer::setDirtyBit(this->blockNum);
+
+    /* (the above function call should not fail since the block is already
+       in buffer and the blockNum is valid. If the call does fail, there
+       exists some other issue in the code) */
+
+
+    return SUCCESS;
 }

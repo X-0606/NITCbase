@@ -9,7 +9,11 @@ StaticBuffer::StaticBuffer() {
   // initialise all blocks as free
   for (int i=0;i<32;i++) {
     metainfo[i].free = true;
+    metainfo[i].dirty=false;
+    metainfo[i].blockNum=-1;
+    metainfo[i].timeStamp=-1;
   }
+
 }
 
 /*
@@ -17,12 +21,27 @@ At this stage, we are not writing back from the buffer to the disk since we are
 not modifying the buffer. So, we will define an empty destructor for now. In
 subsequent stages, we will implement the write-back functionality here.
 */
-StaticBuffer::~StaticBuffer() {}
+StaticBuffer::~StaticBuffer() {
+   for(int i=0;i<BUFFER_CAPACITY;i++){
+    if(metainfo[i].dirty==true){
+        Disk::writeBlock(blocks[i],metainfo[i].blockNum);
+    }
+   }
+
+
+}
 
 int StaticBuffer::getFreeBuffer(int blockNum) {
   if (blockNum < 0 || blockNum > DISK_BLOCKS) {
     return E_OUTOFBOUND;
   }
+
+  for(int i=0;i<BUFFER_CAPACITY;i++){
+    if(metainfo[i].free==false){
+      metainfo[i].timeStamp++;
+    }
+  }
+
   int allocatedBuffer=-79;
 
   // iterate through all the blocks in the StaticBuffer
@@ -35,8 +54,23 @@ int StaticBuffer::getFreeBuffer(int blockNum) {
         break;
     }
  }
-  metainfo[allocatedBuffer].free = false;
+ 
+ if(allocatedBuffer==-79){
+  int maxtimestamp=-1;
+    for(int i=0;i<BUFFER_CAPACITY;i++){
+      if(maxtimestamp<metainfo[i].timeStamp){
+        maxtimestamp=metainfo[i].timeStamp;
+        allocatedBuffer=i;
+      }
+    }
+ }
+     if(metainfo[allocatedBuffer].dirty==true){
+      Disk::writeBlock(blocks[allocatedBuffer],metainfo[allocatedBuffer].blockNum);
+     }
+      metainfo[allocatedBuffer].free = false;
        metainfo[allocatedBuffer].blockNum = blockNum;
+       metainfo[allocatedBuffer].timeStamp=0;
+       metainfo[allocatedBuffer].dirty=false;
        return allocatedBuffer;
 }
 
@@ -62,4 +96,29 @@ int StaticBuffer::getBufferNum(int blockNum) {
 
   // if block is not in the buffer
   return E_BLOCKNOTINBUFFER;
+}
+
+int StaticBuffer::setDirtyBit(int blockNum){
+    // find the buffer index corresponding to the block using getBufferNum().
+    int buffernum=getBufferNum(blockNum);
+     if(buffernum==E_OUTOFBOUND){
+      return E_OUTOFBOUND;
+    }
+
+    // if block is not present in the buffer (bufferNum = E_BLOCKNOTINBUFFER)
+    //     return E_BLOCKNOTINBUFFER
+    if(buffernum==E_BLOCKNOTINBUFFER){
+      return E_BLOCKNOTINBUFFER;
+    }
+    // if blockNum is out of bound (bufferNum = E_OUTOFBOUND)
+    //     return E_OUTOFBOUND
+   else{
+    metainfo[buffernum].dirty=true;
+   }
+    // else
+    //     (the bufferNum is valid)
+    //     set the dirty bit of that buffer to true in metainfo
+
+    // return SUCCESS
+    return SUCCESS;
 }
