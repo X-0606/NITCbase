@@ -4,7 +4,15 @@
 unsigned char StaticBuffer::blocks[32][2048];
 struct BufferMetaInfo StaticBuffer::metainfo[32];
 
+unsigned char StaticBuffer::blockAllocMap[DISK_BLOCKS];
+
 StaticBuffer::StaticBuffer() {
+
+  for(int i=0;i<4;i++){
+   Disk::readBlock(blockAllocMap+i*BLOCK_SIZE,i);
+  }
+
+  
 
   // initialise all blocks as free
   for (int i=0;i<32;i++) {
@@ -22,8 +30,13 @@ not modifying the buffer. So, we will define an empty destructor for now. In
 subsequent stages, we will implement the write-back functionality here.
 */
 StaticBuffer::~StaticBuffer() {
+   
+   for(int i=0;i<4;i++){
+   Disk::writeBlock(blockAllocMap+i*BLOCK_SIZE,i);
+  }
+
    for(int i=0;i<BUFFER_CAPACITY;i++){
-    if(metainfo[i].dirty==true){
+    if(metainfo[i].dirty==true && metainfo[i].blockNum != -1){
         Disk::writeBlock(blocks[i],metainfo[i].blockNum);
     }
    }
@@ -32,7 +45,7 @@ StaticBuffer::~StaticBuffer() {
 }
 
 int StaticBuffer::getFreeBuffer(int blockNum) {
-  if (blockNum < 0 || blockNum > DISK_BLOCKS) {
+  if (blockNum < 0 || blockNum >= DISK_BLOCKS) {
     return E_OUTOFBOUND;
   }
 
@@ -81,7 +94,7 @@ int StaticBuffer::getBufferNum(int blockNum) {
   // Check if blockNum is valid (between zero and DISK_BLOCKS)
   // and return E_OUTOFBOUND if not valid.
 
-  if(blockNum<0||blockNum>8192){
+  if(blockNum<0||blockNum>=DISK_BLOCKS){
     return E_OUTOFBOUND;
   }
 
