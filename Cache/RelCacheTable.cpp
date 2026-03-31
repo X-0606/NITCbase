@@ -125,7 +125,6 @@ int RelCacheTable::setRelCatEntry(int relId, RelCatEntry *relCatBuf) {
   if(relCache[relId]==nullptr) {
     return E_RELNOTOPEN;
   }
-
   // copy the relCatBuf to the corresponding Relation Catalog entry in
   // the Relation Cache Table.
   relCache[relId]->relCatEntry=*relCatBuf;

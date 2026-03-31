@@ -36,7 +36,7 @@ StaticBuffer::~StaticBuffer() {
   }
 
    for(int i=0;i<BUFFER_CAPACITY;i++){
-    if(metainfo[i].dirty==true && metainfo[i].blockNum != -1){
+    if(metainfo[i].dirty==true && metainfo[i].free ==false){
         Disk::writeBlock(blocks[i],metainfo[i].blockNum);
     }
    }

@@ -1,6 +1,7 @@
 #include "BlockBuffer.h"
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include "../Disk_Class/Disk.h"
 
 
@@ -12,6 +13,8 @@ BlockBuffer::BlockBuffer(char blockType){
     // allocate a block on the disk and a buffer in memory to hold the new block of
     // given type using getFreeBlock function and get the return error codes if any.
     int allocatedblk=getFreeBlock((int)blockType);
+    if(allocatedblk>5&&allocatedblk<8192)
+    StaticBuffer::blockAllocMap[allocatedblk]=0;
 
     // set the blockNum field of the object to that of the allocated block
     // number if the method returned a valid block number,
@@ -35,7 +38,8 @@ int BlockBuffer::getHeader(struct HeadInfo *head) {
   if(retu!=SUCCESS){
     return retu;
   }
-
+  memcpy(&head->blockType,buffer + 0,  4);
+  memcpy(&head->pblock, buffer + 4,  4);  
   memcpy(&head->numSlots, buffer + 24, 4);
   memcpy(&head->numEntries,buffer+16, 4);
   memcpy(&head->numAttrs, buffer+20, 4);
@@ -61,7 +65,7 @@ int RecBuffer::getRecord(union Attribute *rec, int slotNum) {
   
 
   int recordSize = attrCount * ATTR_SIZE;
-  unsigned char *slotPointer = buffer+32+head.numSlots+slotNum*recordSize;
+  unsigned char *slotPointer = buffer+HEADER_SIZE+head.numSlots+slotNum*recordSize;
 
   memcpy(rec, slotPointer, recordSize);
 
@@ -191,7 +195,9 @@ int RecBuffer::setRecord(union Attribute *rec, int slotNum) {
        copy the record from `rec` to buffer using memcpy
        (hint: a record will be of size ATTR_SIZE * numAttrs)
     */
+
    memcpy(bufferPtr+HEADER_SIZE+head.numSlots+(slotNum*(ATTR_SIZE*noattrs)),rec,16*noattrs);
+
 
     // update dirty bit using setDirtyBit()
     StaticBuffer::setDirtyBit(this->blockNum);
@@ -303,6 +309,7 @@ int BlockBuffer::getFreeBlock(int blockType){
     // pblock: -1, lblock: -1, rblock: -1, numEntries: 0, numAttrs: 0, numSlots: 0
     // to the setHeader() function.
     HeadInfo head;
+    head.blockType = (int32_t)blockType;
     head.pblock=-1;
     head.lblock=-1;
     head.rblock=-1;
@@ -347,6 +354,37 @@ int RecBuffer::setSlotMap(unsigned char *slotMap) {
     s=StaticBuffer::setDirtyBit(this->blockNum);
 
     return SUCCESS;
+}
+
+
+void BlockBuffer::releaseBlock() {
+    // if blockNum is INVALID_BLOCKNUM (-1), or it is invalidated already, do nothing
+    if (this->blockNum == INVALID_BLOCKNUM) {
+        return;
+    }
+
+    // else
+    /* get the buffer number of the buffer assigned to the block
+       using StaticBuffer::getBufferNum().
+       (this function return E_BLOCKNOTINBUFFER if the block is not
+       currently loaded in the buffer)
+    */
+    int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
+
+    // if the block is present in the buffer, free the buffer
+    // by setting the free flag of its StaticBuffer::tableMetaInfo entry
+    // to true.
+    if (bufferNum != E_BLOCKNOTINBUFFER) {
+        StaticBuffer::metainfo[bufferNum].free = true;
+    }
+
+    // free the block in disk by setting the data type of the entry
+    // corresponding to the block number in StaticBuffer::blockAllocMap
+    // to UNUSED_BLK.
+    StaticBuffer::blockAllocMap[this->blockNum] = UNUSED_BLK;
+
+    // set the object's blockNum to INVALID_BLOCK (-1)
+    this->blockNum = INVALID_BLOCKNUM;
 }
 
 int BlockBuffer::getBlockNum(){
