@@ -248,10 +248,19 @@ int OpenRelTable::closeRel(int relId) {
         RecBuffer blk(id.block);
         blk.setRecord(relcat,id.slot);
       }
-    }
-  
 
-  
+        for(AttrCacheEntry *entry=AttrCacheTable::attrCache[relId];entry!=nullptr;entry=entry->next){
+          if(entry->dirty==true){
+          Attribute attrcat[ATTRCAT_NO_ATTRS];
+          AttrCacheTable::attrCatEntryToRecord(&(entry->attrCatEntry),attrcat);
+          RecId id=entry->recId;
+          RecBuffer blk(id.block);
+          blk.setRecord(attrcat,id.slot);
+          }
+          
+        }
+      
+    }
 
   // free the memory allocated in the relation and attribute caches which was
   // allocated in the OpenRelTable::openRel() function

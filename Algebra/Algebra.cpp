@@ -2,8 +2,7 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
-
-
+#include "../Buffer/BlockBuffer.h"
 /* used to select all the records that satisfy a condition.
 the arguments of the function are
 - srcRel - the source relation we want to select from
@@ -41,13 +40,12 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
 
     // get the attr-cat entry for attr, using AttrCacheTable::getAttrCatEntry()
     AttrCatEntry attrCatEntry;
-    int ret = AttrCacheTable::getAttrCatEntry(srcRelid, attr, &attrCatEntry);
+    int status = AttrCacheTable::getAttrCatEntry(srcRelid, attr, &attrCatEntry);
 
     // if getAttrcatEntry() call fails return E_ATTRNOTEXIST
-    if (ret != SUCCESS) {
+    if (status != SUCCESS) {
         return E_ATTRNOTEXIST;
     }
-
 
     /*** Convert strVal to an attribute of data type NUMBER or STRING ***/
 
@@ -80,7 +78,7 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
     // get RelcatEntry of srcRel using RelCacheTable::getRelCatEntry()
     RelCatEntry srcRelCatEntry;
     RelCacheTable::getRelCatEntry(srcRelid, &srcRelCatEntry);
-    int src_nAttrs = srcRelCatEntry.numAttrs;
+    int src_nAttrs = srcRelCatEntry.numAttrs; /* the no. of attributes present in src relation */ ;
 
 
     /* let attr_names[src_nAttrs][ATTR_SIZE] be a 2D array of type char
@@ -95,28 +93,27 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
         of corresponding attributes
     */
     for (int i = 0; i < src_nAttrs; i++) {
-        AttrCatEntry iAttrCatEntry;
-        AttrCacheTable::getAttrCatEntry(srcRelid, i, &iAttrCatEntry);
-        strcpy(attr_names[i], iAttrCatEntry.attrName);
-        attr_types[i] = iAttrCatEntry.attrType;
+        AttrCatEntry entry;
+        AttrCacheTable::getAttrCatEntry(srcRelid, i, &entry);
+        strcpy(attr_names[i], entry.attrName);
+        attr_types[i] = entry.attrType;
     }
 
-
     /* Create the relation for target relation by calling Schema::createRel()
-        by providing appropriate arguments */
-    ret = Schema::createRel(targetRel, src_nAttrs, attr_names, attr_types);
-    
+       by providing appropriate arguments */
+    status = Schema::createRel(targetRel, src_nAttrs, attr_names, attr_types);
+
     // if the createRel returns an error code, then return that value.
-    if (ret != SUCCESS) {
-        return ret;
+    if (status != SUCCESS) {
+        return status;
     }
 
     /* Open the newly created target relation by calling OpenRelTable::openRel()
-        method and store the target relid */
+       method and store the target relid */
     int targetRelId = OpenRelTable::openRel(targetRel);
 
     /* If opening fails, delete the target relation by calling Schema::deleteRel()
-        and return the error value returned from openRel() */
+       and return the error value returned from openRel() */
     if (targetRelId < 0) {
         Schema::deleteRel(targetRel);
         return targetRelId;
@@ -139,23 +136,30 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
         first record.
     */
     RelCacheTable::resetSearchIndex(srcRelid);
-    // AttrCacheTable::resetSearchIndex(srcRelid, attr);
+    AttrCacheTable::resetSearchIndex(srcRelid, attr);
 
     // read every record that satisfies the condition by repeatedly calling
     // BlockAccess::search() until there are no more records to be read
-
+    count=0;
+    
     while (BlockAccess::search(srcRelid, record, attr, attrVal, op) == SUCCESS) {
+        /* BlockAccess::search() returns success */
 
-        ret = BlockAccess::insert(targetRelId, record);
+        int ret = BlockAccess::insert(targetRelId, record);
 
         if (ret != SUCCESS) {
-            // close the targetrel(by calling Schema::closeRel(targetrel))
+            // if (insert fails) {
+            //     close the targetrel(by calling Schema::closeRel(targetrel))
             Schema::closeRel(targetRel);
-            // delete targetrel (by calling Schema::deleteRel(targetrel))
+            //     delete targetrel (by calling Schema::deleteRel(targetrel))
             Schema::deleteRel(targetRel);
+            //     return ret;
             return ret;
+            // }
         }
     }
+
+    printf("The comparisions are %d\n",count);
 
     // Close the targetRel by calling closeRel() method of schema layer
     Schema::closeRel(targetRel);

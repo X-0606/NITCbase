@@ -378,19 +378,6 @@ int BlockAccess::insert(int relId, Attribute *record) {
         rec_id.block=ret;
         rec_id.slot=0;
 
-        /*
-            set the header of the new record block such that it links with
-            existing record blocks of the relation
-            set the block's header as follows:
-            blockType: REC, pblock: -1
-            lblock
-                  = -1 (if linked list of existing record blocks was empty
-                         i.e this is the first insertion into the relation)
-                  = prevBlockNum (otherwise),
-            rblock: -1, numEntries: 0,
-            numSlots: numOfSlots, numAttrs: numOfAttributes
-            (use BlockBuffer::setHeader() function)
-        */
        HeadInfo head;
        head.blockType=REC;
        head.rblock=-1;
@@ -438,6 +425,7 @@ int BlockAccess::insert(int relId, Attribute *record) {
         // new block (using RelCacheTable::setRelCatEntry() function)
         relcatentry.lastBlk=rec_id.block;
         RelCacheTable::setRelCatEntry(relId,&relcatentry);
+    
     }
 
     // create a RecBuffer object for rec_id.block
@@ -469,8 +457,33 @@ int BlockAccess::insert(int relId, Attribute *record) {
     relcatentry.numRecs++;
     RelCacheTable::setRelCatEntry(relId,&relcatentry);
 
+    /* B+ Tree Insertions */
+    int flag = SUCCESS;
+
+    // Iterate over all the attributes of the relation
+    for (int i = 0; i < relcatentry.numAttrs; i++) 
+    {
+        // get the attribute catalog entry for the attribute from the attribute cache
+        AttrCatEntry attrCatEntry;
+        int status = AttrCacheTable::getAttrCatEntry(relId, i, &attrCatEntry);
+
+        // if index exists for the attribute (i.e. rootBlock != -1)
+        if (status == SUCCESS && attrCatEntry.rootBlock != -1) 
+        {
+            /* insert the new record into the attribute's bplus tree using
+             BPlusTree::bPlusInsert()*/
+            int retVal = BPlusTree::bPlusInsert(relId, attrCatEntry.attrName,
+                                                record[i], rec_id);
+
+            if (retVal == E_DISKFULL) {
+                flag = E_INDEX_BLOCKS_RELEASED; // blocks are released
+            }
+        }
+    }
+
+    return flag;
+
     
-    return SUCCESS;
 }
 
 
@@ -478,11 +491,37 @@ int BlockAccess::search(int relId, Attribute *record, char attrName[ATTR_SIZE], 
     // Declare a variable called recid to store the searched record
     RecId recId;
 
-    /* search for the record id (recid) corresponding to the attribute with
-    attribute name attrName, with value attrval and satisfying the condition op
-    using linearSearch() */
-    recId = BlockAccess::linearSearch(relId, attrName, attrVal, op);
+   AttrCatEntry attrCatEntry;
+    int ret=AttrCacheTable::getAttrCatEntry(relId,attrName,&attrCatEntry);
+    
 
+    // if this call returns an error, return the appropriate error code
+    if(ret!=SUCCESS)
+    {
+        return ret;
+    }
+
+    // get rootBlock from the attribute catalog entry
+    int rootBlock=attrCatEntry.rootBlock;
+    if (rootBlock==-1) 
+    {
+
+        /* search for the record id (recid) corresponding to the attribute with
+           attribute name attrName, with value attrval and satisfying the
+           condition op using linearSearch()
+        */
+        recId=linearSearch(relId,attrName,attrVal,op);
+    }
+
+    else 
+    {
+        // (index exists for the attribute)
+
+        /* search for the record id (recid) correspoding to the attribute with
+        attribute name attrName and with value attrval and satisfying the
+        condition op using BPlusTree::bPlusSearch() */
+        recId=BPlusTree::bPlusSearch(relId,attrName,attrVal,op);
+    }
     // if there's no record satisfying the given condition (recId = {-1, -1})
     //    return E_NOTFOUND;
     if (recId.block == -1 && recId.slot == -1) {
@@ -501,7 +540,7 @@ int BlockAccess::search(int relId, Attribute *record, char attrName[ATTR_SIZE], 
 
 int BlockAccess::deleteRelation(char relName[ATTR_SIZE]) {
     // if the relation to delete is either Relation Catalog or Attribute Catalog,
-    //     return E_NOTPERMITTED
+    //      return E_NOTPERMITTED
     if (strcmp(relName, RELCAT_RELNAME) == 0 || strcmp(relName, ATTRCAT_RELNAME) == 0) {
         return E_NOTPERMITTED;
     }
@@ -515,10 +554,9 @@ int BlockAccess::deleteRelation(char relName[ATTR_SIZE]) {
     strcpy(relNameAttr.sVal, relName);
 
     //  linearSearch on the relation catalog for RelName = relNameAttr
-    RecId relCatRecId = BlockAccess::linearSearch(RELCAT_RELID, (char*)RELCAT_ATTR_RELNAME, relNameAttr, EQ);
+    RecId relCatRecId = linearSearch(RELCAT_RELID, RELCAT_ATTR_RELNAME, relNameAttr, EQ);
 
     // if the relation does not exist (linearSearch returned {-1, -1})
-    //      return E_RELNOTEXIST
     if (relCatRecId.block == -1 && relCatRecId.slot == -1) {
         return E_RELNOTEXIST;
     }
@@ -526,28 +564,32 @@ int BlockAccess::deleteRelation(char relName[ATTR_SIZE]) {
     Attribute relCatEntryRecord[RELCAT_NO_ATTRS];
     /* store the relation catalog record corresponding to the relation in
        relCatEntryRecord using RecBuffer.getRecord */
-    RecBuffer relCatBlockBuffer(relCatRecId.block);
-    relCatBlockBuffer.getRecord(relCatEntryRecord, relCatRecId.slot);
+    RecBuffer relCatBlock(relCatRecId.block);
+    relCatBlock.getRecord(relCatEntryRecord, relCatRecId.slot);
 
     /* get the first record block of the relation (firstBlock) using the
        relation catalog entry record */
-    int firstBlock = (int)relCatEntryRecord[RELCAT_FIRST_BLOCK_INDEX].nVal;
+    int currentBlockNum = (int)relCatEntryRecord[RELCAT_FIRST_BLOCK_INDEX].nVal;
+    /* get the number of attributes corresponding to the relation (numAttrs)
+       using the relation catalog entry record */
+    int numAttrs = (int)relCatEntryRecord[RELCAT_NO_ATTRIBUTES_INDEX].nVal;
 
     /*
       Delete all the record blocks of the relation
     */
-    int currentBlockNum = firstBlock;
     while (currentBlockNum != -1) {
-        BlockBuffer blockBuffer(currentBlockNum);
+        RecBuffer block(currentBlockNum);
         HeadInfo header;
-        blockBuffer.getHeader(&header);
-        int nextBlock = header.rblock;
-        blockBuffer.releaseBlock();
-        currentBlockNum = nextBlock;
+        block.getHeader(&header);
+        int nextBlockNum = header.rblock;
+
+        block.releaseBlock();
+        currentBlockNum = nextBlockNum;
     }
 
     /***
-        Deleting attribute catalog entries corresponding the relation
+        Deleting attribute catalog entries corresponding the relation and index
+        blocks corresponding to the relation with relName on its attributes
     ***/
 
     // reset the searchIndex of the attribute catalog
@@ -558,10 +600,9 @@ int BlockAccess::deleteRelation(char relName[ATTR_SIZE]) {
     while (true) {
         RecId attrCatRecId;
         // attrCatRecId = linearSearch on attribute catalog for RelName = relNameAttr
-        attrCatRecId = BlockAccess::linearSearch(ATTRCAT_RELID, (char*)ATTRCAT_ATTR_RELNAME, relNameAttr, EQ);
+        attrCatRecId = linearSearch(ATTRCAT_RELID, ATTRCAT_ATTR_RELNAME, relNameAttr, EQ);
 
         // if no more attributes to iterate over (attrCatRecId == {-1, -1})
-        //      break;
         if (attrCatRecId.block == -1 && attrCatRecId.slot == -1) {
             break;
         }
@@ -569,77 +610,95 @@ int BlockAccess::deleteRelation(char relName[ATTR_SIZE]) {
         numberOfAttributesDeleted++;
 
         // create a RecBuffer for attrCatRecId.block
-        RecBuffer attrCatblkbuf(attrCatRecId.block);
+        RecBuffer attrCatBlock(attrCatRecId.block);
+        
         // get the header of the block
         HeadInfo attrCatHeader;
-        attrCatblkbuf.getHeader(&attrCatHeader);
+        attrCatBlock.getHeader(&attrCatHeader);
+        
+        // get the record corresponding to attrCatRecId.slot
+        Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
+        attrCatBlock.getRecord(attrCatRecord, attrCatRecId.slot);
+
+        // declare variable rootBlock which will be used to store the root
+        // block field from the attribute catalog record.
+        int rootBlock = (int)attrCatRecord[ATTRCAT_ROOT_BLOCK_INDEX].nVal;
 
         // Update the Slotmap for the block by setting the slot as SLOT_UNOCCUPIED
         unsigned char slotMap[attrCatHeader.numSlots];
-        attrCatblkbuf.getSlotMap(slotMap);
+        attrCatBlock.getSlotMap(slotMap);
         slotMap[attrCatRecId.slot] = SLOT_UNOCCUPIED;
-        attrCatblkbuf.setSlotMap(slotMap);
+        attrCatBlock.setSlotMap(slotMap);
 
         /* Decrement the numEntries in the header of the block corresponding to
-           the attribute catalog entry and then set back the header
-           using RecBuffer.setHeader */
+           the attribute catalog entry and then set back the header */
         attrCatHeader.numEntries--;
-        attrCatblkbuf.setHeader(&attrCatHeader);
+        attrCatBlock.setHeader(&attrCatHeader);
 
         /* If number of entries become 0, releaseBlock is called after fixing
-           the linked list.
-        */
+           the linked list. */
         if (attrCatHeader.numEntries == 0) {
-            int lblock = attrCatHeader.lblock;
-            int rblock = attrCatHeader.rblock;
+            /* Get the header of the left block and set it's rblock to this
+               block's rblock */
+            RecBuffer prevBlock(attrCatHeader.lblock);
+            HeadInfo prevHeader;
+            prevBlock.getHeader(&prevHeader);
+            prevHeader.rblock = attrCatHeader.rblock;
+            prevBlock.setHeader(&prevHeader);
 
-            if (lblock != -1) {
-                RecBuffer prevBlockBuffer(lblock);
-                HeadInfo prevHeader;
-                prevBlockBuffer.getHeader(&prevHeader);
-                prevHeader.rblock = rblock;
-                prevBlockBuffer.setHeader(&prevHeader);
-            }
-
-            if (rblock != -1) {
-                RecBuffer nextBlockBuffer(rblock);
+            if (attrCatHeader.rblock != -1) {
+                /* Get the header of the right block and set it's lblock to
+                   this block's lblock */
+                RecBuffer nextBlock(attrCatHeader.rblock);
                 HeadInfo nextHeader;
-                nextBlockBuffer.getHeader(&nextHeader);
-                nextHeader.lblock = lblock;
-                nextBlockBuffer.setHeader(&nextHeader);
+                nextBlock.getHeader(&nextHeader);
+                nextHeader.lblock = attrCatHeader.lblock;
+                nextBlock.setHeader(&nextHeader);
             } else {
+                // (the block being released is the "Last Block" of the relation.)
+                /* update the Relation Catalog entry's LastBlock field for this
+                   relation with the block number of the previous block. */
                 RelCatEntry attrCatRelEntry;
                 RelCacheTable::getRelCatEntry(ATTRCAT_RELID, &attrCatRelEntry);
-                attrCatRelEntry.lastBlk = lblock;
+                attrCatRelEntry.lastBlk = attrCatHeader.lblock;
                 RelCacheTable::setRelCatEntry(ATTRCAT_RELID, &attrCatRelEntry);
             }
+            attrCatBlock.releaseBlock();
+        }
 
-            attrCatblkbuf.releaseBlock();
+        // if index exists for the attribute (rootBlock != -1), call bplus destroy
+        if (rootBlock != -1) {
+            BPlusTree::bPlusDestroy(rootBlock);
         }
     }
 
     /*** Delete the entry corresponding to the relation from relation catalog ***/
-    RecBuffer relCatFinalBuffer(relCatRecId.block);
+    RecBuffer relCatBlockFinal(relCatRecId.block);
     HeadInfo relCatHeader;
-    relCatFinalBuffer.getHeader(&relCatHeader);
+    relCatBlockFinal.getHeader(&relCatHeader);
 
+    /* Decrement the numEntries in the header */
     relCatHeader.numEntries--;
-    relCatFinalBuffer.setHeader(&relCatHeader);
+    relCatBlockFinal.setHeader(&relCatHeader);
 
+    /* Update slotmap */
     unsigned char relCatSlotMap[relCatHeader.numSlots];
-    relCatFinalBuffer.getSlotMap(relCatSlotMap);
+    relCatBlockFinal.getSlotMap(relCatSlotMap);
     relCatSlotMap[relCatRecId.slot] = SLOT_UNOCCUPIED;
-    relCatFinalBuffer.setSlotMap(relCatSlotMap);
+    relCatBlockFinal.setSlotMap(relCatSlotMap);
 
     /*** Updating the Relation Cache Table ***/
+    
+    // Update Relation Catalog count
     RelCatEntry relCatRelEntry;
     RelCacheTable::getRelCatEntry(RELCAT_RELID, &relCatRelEntry);
     relCatRelEntry.numRecs--;
     RelCacheTable::setRelCatEntry(RELCAT_RELID, &relCatRelEntry);
 
+    // Update Attribute Catalog count
     RelCatEntry attrCatRelEntry;
     RelCacheTable::getRelCatEntry(ATTRCAT_RELID, &attrCatRelEntry);
-    attrCatRelEntry.numRecs -= numberOfAttributesDeleted;
+    attrCatRelEntry.numRecs-= numberOfAttributesDeleted;
     RelCacheTable::setRelCatEntry(ATTRCAT_RELID, &attrCatRelEntry);
 
     return SUCCESS;
