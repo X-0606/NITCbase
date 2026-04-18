@@ -288,7 +288,6 @@ int Algebra::join(char srcRelation1[ATTR_SIZE], char srcRelation2[ATTR_SIZE], ch
     int numOfAttributes1 = relCatEntry1.numAttrs;
     int numOfAttributes2 = relCatEntry2.numAttrs;
 
-    // Check for duplicate attributes (excluding join attributes)
     for (int i = 0; i < numOfAttributes1; i++)
     {
         AttrCatEntry attr1;
@@ -317,34 +316,36 @@ int Algebra::join(char srcRelation1[ATTR_SIZE], char srcRelation2[ATTR_SIZE], ch
         BPlusTree::bPlusCreate(srcrelid2, attribute2);
     }
 
-    int numOfAttributesInTarget = numOfAttributes1 + numOfAttributes2 - 1;
+    int targetAttrCount = numOfAttributes1+numOfAttributes2-1;
 
-    char targetRelAttrNames[numOfAttributesInTarget][ATTR_SIZE];
-    int targetRelAttrTypes[numOfAttributesInTarget];
+    char targetRelAttrNames[targetAttrCount][ATTR_SIZE];
+    int targetRelAttrTypes[targetAttrCount];
 
-    // Populate target attributes from rel1
+ 
+    int targetIdx = 0;
     for (int i = 0; i < numOfAttributes1; i++)
     {
         AttrCatEntry attr1;
         AttrCacheTable::getAttrCatEntry(srcrelid1, i, &attr1);
-        strcpy(targetRelAttrNames[i], attr1.attrName);
-        targetRelAttrTypes[i] = attr1.attrType;
+        strcpy(targetRelAttrNames[targetIdx], attr1.attrName);
+        targetRelAttrTypes[targetIdx] = attr1.attrType;
+        targetIdx++;
     }
 
-    // Populate target attributes from rel2 (excluding join attribute)
-    for (int i = numOfAttributes1; i < numOfAttributesInTarget; i++)
+    for (int i = 0; i < numOfAttributes2; i++)
     {
         AttrCatEntry attr1;
-        AttrCacheTable::getAttrCatEntry(srcrelid2, i - numOfAttributes1, &attr1);
+        AttrCacheTable::getAttrCatEntry(srcrelid2, i, &attr1);
         if (strcmp(attribute2, attr1.attrName) == 0)
         {
             continue;
         }
-        strcpy(targetRelAttrNames[i], attr1.attrName);
-        targetRelAttrTypes[i] = attr1.attrType;
+        strcpy(targetRelAttrNames[targetIdx], attr1.attrName);
+        targetRelAttrTypes[targetIdx] = attr1.attrType;
+        targetIdx++;
     }
 
-    status = Schema::createRel(targetRelation, numOfAttributesInTarget, targetRelAttrNames, targetRelAttrTypes);
+    status = Schema::createRel(targetRelation, targetAttrCount, targetRelAttrNames, targetRelAttrTypes);
     if (status != SUCCESS)
     {
         return status;
@@ -360,17 +361,18 @@ int Algebra::join(char srcRelation1[ATTR_SIZE], char srcRelation2[ATTR_SIZE], ch
 
     Attribute record1[numOfAttributes1];
     Attribute record2[numOfAttributes2];
-    Attribute targetRecord[numOfAttributesInTarget];
+    Attribute targetRecord[targetAttrCount];
 
+    RelCacheTable::resetSearchIndex(srcrelid1);
+    
     while (BlockAccess::project(srcrelid1, record1) == SUCCESS)
     {
         RelCacheTable::resetSearchIndex(srcrelid2);
         AttrCacheTable::resetSearchIndex(srcrelid2, attribute2);
-
+        
         while (BlockAccess::search(
                    srcrelid2, record2, attribute2, record1[attrCatEntry1.offset], EQ) == SUCCESS)
         {
-
             int k = 0;
             for (int i = 0; i < numOfAttributes1; i++)
             {
@@ -381,14 +383,14 @@ int Algebra::join(char srcRelation1[ATTR_SIZE], char srcRelation2[ATTR_SIZE], ch
             {
                 AttrCacheTable::getAttrCatEntry(srcrelid2, i, &tempAttr);
                 if (strcmp(attribute2, tempAttr.attrName) != 0)
-                {
+                {     
                     targetRecord[k++] = record2[i];
                 }
             }
 
-            int insertStatus = BlockAccess::insert(targetRelId, targetRecord);
-
-            if (insertStatus != SUCCESS)
+            status = BlockAccess::insert(targetRelId, targetRecord);
+            
+            if(status != SUCCESS)
             {
                 OpenRelTable::closeRel(targetRelId);
                 Schema::deleteRel(targetRelation);

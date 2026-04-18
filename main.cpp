@@ -13,13 +13,13 @@ int main(int argc, char *argv[]) {
     StaticBuffer buffer;
     OpenRelTable cache;
 
-  unsigned char blockBuffer[BLOCK_SIZE];
-  for(int i=0;i<4;i++){
-    Disk::readBlock(blockBuffer,i);
-    for(int j=0;j<BLOCK_SIZE;j++){
-     printf("%d",blockBuffer[j]);
-    }
-  }
+  // unsigned char blockBuffer[BLOCK_SIZE];
+  // for(int i=0;i<4;i++){
+  //   Disk::readBlock(blockBuffer,i);
+  //   for(int j=0;j<BLOCK_SIZE;j++){
+  //    printf("%d",blockBuffer[j]);
+  //   }
+  // }
 
     return FrontendInterface::handleFrontend(argc, argv);
 }
