@@ -126,6 +126,11 @@ int Frontend::select_attrlist_from_table_where(
   return ret;
 }
 
+int Frontend::select_from_table_where(char relname_source[ATTR_SIZE],char attribute[ATTR_SIZE], int op, char value[ATTR_SIZE]){
+    return Algebra::select(relname_source,attribute,op,value);
+    
+}
+
 int Frontend::select_from_join_where(
     char relname_source_one[ATTR_SIZE], char relname_source_two[ATTR_SIZE],
     char relname_target[ATTR_SIZE],

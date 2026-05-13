@@ -22,6 +22,8 @@ class Algebra {
   // Join
   static int join(char srcRelOne[ATTR_SIZE], char srcRelTwo[ATTR_SIZE], char targetRel[ATTR_SIZE],
                   char attrOne[ATTR_SIZE], char attrTwo[ATTR_SIZE]);
+
+  static int select(char srcRel[ATTR_SIZE],char attr[ATTR_SIZE], int op, char strVal[ATTR_SIZE] );
 };
 
 #endif  // NITCBASE_ALGEBRA_H

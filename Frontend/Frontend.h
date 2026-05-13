@@ -29,6 +29,8 @@ class Frontend {
 
   static int select_from_table(char relname_source[ATTR_SIZE], char relname_target[ATTR_SIZE]);
 
+  static int select_from_table_where(char relname_source[ATTR_SIZE],char attribute[ATTR_SIZE], int op, char value[ATTR_SIZE]);
+
   static int select_attrlist_from_table(char relname_source[ATTR_SIZE], char relname_target[ATTR_SIZE],
                                         int attr_count, char attr_list[][ATTR_SIZE]);
 

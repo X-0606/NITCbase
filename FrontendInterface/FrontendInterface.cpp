@@ -308,6 +308,21 @@ int RegexHandler::selectFromHandler() {
   return ret;
 }
 
+int RegexHandler::selectfromwherehandler(){
+  char sourceRelName[ATTR_SIZE];
+  char attribute[ATTR_SIZE];
+  char valueStr[ATTR_SIZE];
+  attrToTruncatedArray(m[1], sourceRelName);
+  attrToTruncatedArray(m[2], attribute);
+  int op=getOperator(m[3]);
+  attrToTruncatedArray(m[4], valueStr);
+
+  int ret = Frontend::select_from_table_where(sourceRelName,attribute,op,valueStr);
+
+  return ret;
+
+}
+
 int RegexHandler::selectFromWhereHandler() {
   char sourceRelName[ATTR_SIZE];
   char targetRelName[ATTR_SIZE];

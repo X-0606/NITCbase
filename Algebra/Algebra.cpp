@@ -12,6 +12,68 @@ bool isNumber(char *str)
     return ret == 1 && len == strlen(str);
 }
 
+int Algebra::select(char srcRel[ATTR_SIZE],char attr[ATTR_SIZE], int op, char strVal[ATTR_SIZE] ){
+    int srcRelid=OpenRelTable::getRelId(srcRel);
+
+    if(srcRelid<0||srcRelid>=MAX_OPEN){
+        srcRelid=OpenRelTable::openRel(srcRel);
+        if(srcRelid==E_RELNOTEXIST){
+            return E_RELNOTEXIST;
+        }
+    }
+
+    AttrCatEntry attrCatEntry;
+    int status = AttrCacheTable::getAttrCatEntry(srcRelid, attr, &attrCatEntry);
+    if (status != SUCCESS)
+    {
+        return E_ATTRNOTEXIST;
+    }
+
+    Attribute attrVal;
+    int type = attrCatEntry.attrType;
+    if (type == NUMBER)
+    {
+        if (isNumber(strVal))
+        {
+            attrVal.nVal = atof(strVal);
+        }
+        else
+        {
+            return E_ATTRTYPEMISMATCH;
+        }
+    }
+    else if (type == STRING)
+    {
+        strcpy(attrVal.sVal, strVal);
+    }
+    RelCatEntry relcatbuf;
+    AttrCatEntry attrcatbuf;
+    RelCacheTable::getRelCatEntry(srcRelid,&relcatbuf);
+    Attribute trecord[relcatbuf.numAttrs];
+
+    for(int i=0;i<relcatbuf.numAttrs;i++){
+        AttrCacheTable::getAttrCatEntry(srcRelid,i,&attrcatbuf);
+        printf("%-15s |",attrcatbuf.attrName);
+    }
+    
+    RelCacheTable::resetSearchIndex(srcRelid);
+
+    while(BlockAccess::search(srcRelid,trecord,attr,attrVal,op)==SUCCESS){
+        printf("\n");
+        for(int i=0;i<relcatbuf.numAttrs;i++){
+            AttrCacheTable::getAttrCatEntry(srcRelid,i,&attrcatbuf);
+            if(attrcatbuf.attrType==NUMBER)
+            printf("%-15.2f |",trecord[i].nVal);
+            else
+            printf("%-15s |",trecord[i].sVal);
+        }
+        
+
+    }
+    
+    return SUCCESS;
+}
+
 int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr[ATTR_SIZE], int op, char strVal[ATTR_SIZE])
 {
     int srcRelid = OpenRelTable::getRelId(srcRel);
@@ -310,7 +372,6 @@ int Algebra::join(char srcRelation1[ATTR_SIZE], char srcRelation2[ATTR_SIZE], ch
         }
     }
 
-    // Create index on attribute2 if not present
     if (attrCatEntry2.rootBlock == -1)
     {
         BPlusTree::bPlusCreate(srcrelid2, attribute2);
@@ -320,7 +381,6 @@ int Algebra::join(char srcRelation1[ATTR_SIZE], char srcRelation2[ATTR_SIZE], ch
 
     char targetRelAttrNames[targetAttrCount][ATTR_SIZE];
     int targetRelAttrTypes[targetAttrCount];
-
  
     int targetIdx = 0;
     for (int i = 0; i < numOfAttributes1; i++)

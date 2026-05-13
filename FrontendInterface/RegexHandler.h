@@ -31,7 +31,7 @@
 #define INSERT_SINGLE_CMD "\\s*INSERT\\s+INTO\\s+([A-Za-z0-9_-]+)\\s+VALUES\\s*\\(\\s*((?:(?:[A-Za-z0-9_-]+|[0-9]+\\.[0-9]+)\\s*,\\s*)*(?:[A-Za-z0-9_-]+|[0-9]+\\.[0-9]+))\\s*\\)\\s*;?"
 #define INSERT_MULTIPLE_CMD "\\s*INSERT\\s+INTO\\s+([A-Za-z0-9_-]+)\\s+VALUES\\s+FROM\\s+([a-zA-Z0-9_-]+\\.csv)\\s*;?"
 #define CUSTOM_CMD "\\s*FUNCTION\\s+([A-Za-z,#0-9\\s()_-]+)\\s*;?"
-
+#define SELECT_FROM_WHERE_CMD_NOTARGET "SELECT\\s+\\*\\s+FROM\\s+([a-zA-Z0-9_]+)\\s+WHERE\\s+([#A-Za-z0-9_\\.]+)\\s*(=|>|<|>=|<=)\\s*([A-Za-z0-9_-]+|([0-9]+(\\.)[0-9]+))\\s*;?"
 #define REGEX(c) std::regex(c, std::regex_constants::icase)
 
 class RegexHandler {
@@ -61,6 +61,7 @@ class RegexHandler {
       {REGEX(SELECT_FROM_JOIN_CMD), &RegexHandler::selectFromJoinHandler},
       {REGEX(SELECT_ATTR_FROM_JOIN_CMD), &RegexHandler::selectAttrFromJoinHandler},
       {REGEX(CUSTOM_CMD), &RegexHandler::customFunctionHandler},
+      {REGEX(SELECT_FROM_WHERE_CMD_NOTARGET), &RegexHandler::selectfromwherehandler}
   };
 
   // extract tokens delimited by whitespace and comma
@@ -89,6 +90,7 @@ class RegexHandler {
   int selectFromJoinHandler();
   int selectAttrFromJoinHandler();
   int customFunctionHandler();
+  int selectfromwherehandler();
 
  public:
   int handle(const std::string command);
