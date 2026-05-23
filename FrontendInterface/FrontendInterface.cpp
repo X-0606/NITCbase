@@ -5,10 +5,7 @@
 #include <iostream>
 #include <readline/history.h>
 #include <readline/readline.h>
-// clang-format on
-
 #include "FrontendInterface.h"
-
 #include "../Disk_Class/Disk.h"
 #include "../Frontend/Frontend.h"
 #include "../define/constants.h"
@@ -73,7 +70,7 @@ int RegexHandler::runHandler() {
 
   commandsFile.close();
 
-  return SUCCESS;  // error messages if any will be printed in recursive call to handle
+  return SUCCESS;
 }
 
 int RegexHandler::openHandler() {
@@ -308,6 +305,17 @@ int RegexHandler::selectFromHandler() {
   return ret;
 }
 
+int RegexHandler::selectFromHandler_NoTarget() {
+  char sourceRelName[ATTR_SIZE];
+  attrToTruncatedArray(m[1], sourceRelName);
+
+  int ret = Frontend::select_from_table(sourceRelName, NULL);
+
+  return ret;
+}
+
+
+
 int RegexHandler::selectfromwherehandler(){
   char sourceRelName[ATTR_SIZE];
   char attribute[ATTR_SIZE];
@@ -364,6 +372,22 @@ int RegexHandler::selectAttrFromHandler() {
   return ret;
 }
 
+int RegexHandler::selectAttrFromHandler_NoTarget(){
+  char sourceRelName[ATTR_SIZE];
+  attrToTruncatedArray(m[2], sourceRelName);
+  vector<string> words = extractTokens(m[1]);
+
+  int attrCount = words.size();
+  char attrNames[attrCount][ATTR_SIZE];
+  for (int i = 0; i < attrCount; i++) {
+    attrToTruncatedArray(words[i], attrNames[i]);
+  }
+
+  int ret = Frontend::select_attrlist_from_table(sourceRelName,nullptr, attrCount, attrNames);
+
+  return ret;
+}
+
 int RegexHandler::selectAttrFromWhereHandler() {
   char sourceRelName[ATTR_SIZE];
   char targetRelName[ATTR_SIZE];
@@ -391,6 +415,31 @@ int RegexHandler::selectAttrFromWhereHandler() {
   }
 
   return ret;
+}
+
+int RegexHandler::selectAttrFromWhereHandler_NoTarget(){
+  char sourceRelName[ATTR_SIZE];
+  char attribute[ATTR_SIZE];
+  char value[ATTR_SIZE];
+
+  attrToTruncatedArray(m[2], sourceRelName);
+  attrToTruncatedArray(m[3],attribute);
+  int op = getOperator(m[4]);
+  attrToTruncatedArray(m[5],value);
+
+  vector<string> attrTokens = extractTokens(m[1]);
+
+  int attrCount = attrTokens.size();
+  char attrNames[attrCount][ATTR_SIZE];
+  for (int i = 0; i < attrCount; i++) {
+    attrToTruncatedArray(attrTokens[i], attrNames[i]);
+  }
+
+  int ret = Frontend::select_attrlist_from_table_where(sourceRelName, nullptr, attrCount, attrNames,
+                                                       attribute, op, value);
+
+  return ret;
+
 }
 
 int RegexHandler::selectFromJoinHandler() {

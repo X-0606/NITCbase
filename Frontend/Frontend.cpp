@@ -71,13 +71,13 @@ int Frontend::select_attrlist_from_table(char relname_source[ATTR_SIZE], char re
   // Algebra::project// Call appropriate project() method of the Algebra Layer
 
   // Return Success or Error values appropriately
-  return Algebra::project(relname_source, relname_target, attr_count, attr_list);
+  return Algebra::project(relname_source, attr_count, attr_list,relname_target);
 }
 
 int Frontend::select_from_table_where(char relname_source[ATTR_SIZE], char relname_target[ATTR_SIZE],
                                       char attribute[ATTR_SIZE], int op, char value[ATTR_SIZE])
 {
-  return Algebra::select(relname_source, relname_target, attribute, op, value);
+  return Algebra::select(relname_source, attribute, op, value, relname_target);
   // Algebra::select
 }
 
@@ -89,7 +89,7 @@ int Frontend::select_attrlist_from_table_where(
 
   // Call select() method of the Algebra Layer with correct arguments to
   // create a temporary target relation with name ".temp" (use constant TEMP)
-  int ret = Algebra::select(relname_source, (char *)TEMP, attribute, op, value);
+  int ret = Algebra::select(relname_source, attribute, op, value, (char *)TEMP);
 
   // TEMP will contain all the attributes of the source relation as it is the
   // result of a select operation
@@ -114,7 +114,7 @@ int Frontend::select_attrlist_from_table_where(
   // On the TEMP relation, call project() method of the Algebra Layer with
   // correct arguments to create the actual target relation. The final
   // target relation contains only those attributes mentioned in attr_list
-  ret = Algebra::project((char *)TEMP, relname_target, attr_count, attr_list);
+  ret = Algebra::project((char *)TEMP, attr_count, attr_list, relname_target);
 
   // close the TEMP relation using OpenRelTable::closeRel()
   OpenRelTable::closeRel(tempRelId);
@@ -127,7 +127,7 @@ int Frontend::select_attrlist_from_table_where(
 }
 
 int Frontend::select_from_table_where(char relname_source[ATTR_SIZE],char attribute[ATTR_SIZE], int op, char value[ATTR_SIZE]){
-    return Algebra::select(relname_source,attribute,op,value);
+    return Algebra::select(relname_source, attribute, op, value);
     
 }
 
@@ -158,7 +158,7 @@ int Frontend::select_attrlist_from_join_where(char relname_source_one[ATTR_SIZE]
     return tempRelId;
   }
 
-  status = Algebra::project((char *)TEMP, relname_target, attr_count, attr_list);
+  status = Algebra::project((char *)TEMP, attr_count, attr_list, relname_target);
 
   OpenRelTable::closeRel(tempRelId);
 

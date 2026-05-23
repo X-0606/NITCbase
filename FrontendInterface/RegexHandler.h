@@ -31,7 +31,11 @@
 #define INSERT_SINGLE_CMD "\\s*INSERT\\s+INTO\\s+([A-Za-z0-9_-]+)\\s+VALUES\\s*\\(\\s*((?:(?:[A-Za-z0-9_-]+|[0-9]+\\.[0-9]+)\\s*,\\s*)*(?:[A-Za-z0-9_-]+|[0-9]+\\.[0-9]+))\\s*\\)\\s*;?"
 #define INSERT_MULTIPLE_CMD "\\s*INSERT\\s+INTO\\s+([A-Za-z0-9_-]+)\\s+VALUES\\s+FROM\\s+([a-zA-Z0-9_-]+\\.csv)\\s*;?"
 #define CUSTOM_CMD "\\s*FUNCTION\\s+([A-Za-z,#0-9\\s()_-]+)\\s*;?"
-#define SELECT_FROM_WHERE_CMD_NOTARGET "SELECT\\s+\\*\\s+FROM\\s+([a-zA-Z0-9_]+)\\s+WHERE\\s+([#A-Za-z0-9_\\.]+)\\s*(=|>|<|>=|<=)\\s*([A-Za-z0-9_-]+|([0-9]+(\\.)[0-9]+))\\s*;?"
+#define SELECT_FROM_WHERE_CMD_NO_TARGET "\\s*SELECT\\s+\\*\\s+FROM\\s+([A-Za-z0-9_-]+)\\s+WHERE\\s+([#A-Za-z0-9_-]+)\\s*(=|>|<|>=|<=|!=)\\s*([A-Za-z0-9_-]+|([0-9]+(\\.))?[0-9]+)\\s*;?"
+#define SELECT_ATTR_FROM_CMD_NO_TARGET "\\s*SELECT\\s+((?:[#A-Za-z0-9_-]+\\s*,\\s*)*(?:[#A-Za-z0-9_-]+))\\s+FROM\\s+([A-Za-z0-9_-]+)\\s*;?"
+#define SELECT_ATTR_FROM_WHERE_CMD_NO_TARGET "\\s*SELECT\\s+((?:[#A-Za-z0-9_-]+\\s*,\\s*)*(?:[#A-Za-z0-9_-]+))\\s+FROM\\s+([A-Za-z0-9_-]+)\\s+WHERE\\s+([#A-Za-z0-9_-]+)\\s*(<|<=|>|>=|=|!=)\\s*([A-Za-z0-9_-]+|([0-9]+(\\.)[0-9]+))\\s*;?"
+#define SELECT_FROM_CMD_NO_TARGET "\\s*SELECT\\s+\\*\\s+FROM\\s+([A-Za-z0-9_-]+)\\s*;?"
+
 #define REGEX(c) std::regex(c, std::regex_constants::icase)
 
 class RegexHandler {
@@ -55,13 +59,17 @@ class RegexHandler {
       {REGEX(INSERT_SINGLE_CMD), &RegexHandler::insertSingleHandler},
       {REGEX(INSERT_MULTIPLE_CMD), &RegexHandler::insertFromFileHandler},
       {REGEX(SELECT_FROM_CMD), &RegexHandler::selectFromHandler},
+      {REGEX(SELECT_FROM_WHERE_CMD_NO_TARGET), &RegexHandler::selectfromwherehandler},
       {REGEX(SELECT_FROM_WHERE_CMD), &RegexHandler::selectFromWhereHandler},
       {REGEX(SELECT_ATTR_FROM_CMD), &RegexHandler::selectAttrFromHandler},
+      {REGEX(SELECT_ATTR_FROM_CMD_NO_TARGET), &RegexHandler::selectAttrFromHandler_NoTarget},
       {REGEX(SELECT_ATTR_FROM_WHERE_CMD), &RegexHandler::selectAttrFromWhereHandler},
       {REGEX(SELECT_FROM_JOIN_CMD), &RegexHandler::selectFromJoinHandler},
       {REGEX(SELECT_ATTR_FROM_JOIN_CMD), &RegexHandler::selectAttrFromJoinHandler},
       {REGEX(CUSTOM_CMD), &RegexHandler::customFunctionHandler},
-      {REGEX(SELECT_FROM_WHERE_CMD_NOTARGET), &RegexHandler::selectfromwherehandler}
+      {REGEX(SELECT_ATTR_FROM_WHERE_CMD_NO_TARGET),&RegexHandler::selectAttrFromWhereHandler_NoTarget},
+      {REGEX(SELECT_FROM_CMD_NO_TARGET),&RegexHandler::selectFromHandler_NoTarget}
+
   };
 
   // extract tokens delimited by whitespace and comma
@@ -84,6 +92,7 @@ class RegexHandler {
   int insertSingleHandler();
   int insertFromFileHandler();
   int selectFromHandler();
+  int selectFromHandler_NoTarget();
   int selectFromWhereHandler();
   int selectAttrFromHandler();
   int selectAttrFromWhereHandler();
@@ -91,6 +100,9 @@ class RegexHandler {
   int selectAttrFromJoinHandler();
   int customFunctionHandler();
   int selectfromwherehandler();
+  int selectAttrFromHandler_NoTarget();
+  int selectAttrFromWhereHandler_NoTarget();
+
 
  public:
   int handle(const std::string command);
