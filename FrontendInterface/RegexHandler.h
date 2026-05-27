@@ -7,6 +7,7 @@
 
 /* External File System Commands */
 #define HELP_CMD "\\s*HELP\\s*;?"
+#define FDISK_CMD "\\s*FDISK\\s*;?"
 #define EXIT_CMD "\\s*EXIT\\s*;?"
 #define RUN_CMD "\\s*RUN\\s+([a-zA-Z0-9_/.-]+)\\s*;?"
 #define ECHO_CMD "\\s*ECHO\\s*([a-zA-Z0-9 _,()'?:+*.-]*)\\s*;?"
@@ -20,6 +21,7 @@
 #define DROP_INDEX_CMD "\\s*DROP\\s+INDEX\\s+ON\\s+([A-Za-z0-9_-]+)\\s*\\.\\s*([#A-Za-z0-9_-]+)\\s*;?"
 #define RENAME_TABLE_CMD "\\s*ALTER\\s+TABLE\\s+RENAME\\s+([a-zA-Z0-9_-]+)\\s+TO\\s+([a-zA-Z0-9_-]+)\\s*;?"
 #define RENAME_COLUMN_CMD "\\s*ALTER\\s+TABLE\\s+RENAME\\s+([a-zA-Z0-9_-]+)\\s+COLUMN\\s+([#a-zA-Z0-9_-]+)\\s+TO\\s+([#a-zA-Z0-9_-]+)\\s*;?"
+
 
 /* DML Commands */
 #define SELECT_FROM_CMD "\\s*SELECT\\s+\\*\\s+FROM\\s+([A-Za-z0-9_-]+)\\s+INTO\\s+([A-Za-z0-9_-]+)\\s*;?"
@@ -68,7 +70,8 @@ class RegexHandler {
       {REGEX(SELECT_ATTR_FROM_JOIN_CMD), &RegexHandler::selectAttrFromJoinHandler},
       {REGEX(CUSTOM_CMD), &RegexHandler::customFunctionHandler},
       {REGEX(SELECT_ATTR_FROM_WHERE_CMD_NO_TARGET),&RegexHandler::selectAttrFromWhereHandler_NoTarget},
-      {REGEX(SELECT_FROM_CMD_NO_TARGET),&RegexHandler::selectFromHandler_NoTarget}
+      {REGEX(SELECT_FROM_CMD_NO_TARGET),&RegexHandler::selectFromHandler_NoTarget},
+      {REGEX(FDISK_CMD),&RegexHandler::fdisk}
 
   };
 
@@ -102,6 +105,7 @@ class RegexHandler {
   int selectfromwherehandler();
   int selectAttrFromHandler_NoTarget();
   int selectAttrFromWhereHandler_NoTarget();
+  int fdisk();
 
 
  public:

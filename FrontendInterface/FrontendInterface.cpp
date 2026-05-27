@@ -73,6 +73,19 @@ int RegexHandler::runHandler() {
   return SUCCESS;
 }
 
+int RegexHandler::fdisk(){
+
+   int ret=Disk::createDisk();
+   if(ret==FAILURE)
+   return FAILURE;
+
+	Disk::formatDisk();
+
+  cout<<"Disk Formatted"<<endl;
+
+  return SUCCESS;
+}
+
 int RegexHandler::openHandler() {
   char relName[ATTR_SIZE];
   attrToTruncatedArray(m[1], relName);
@@ -440,7 +453,7 @@ int RegexHandler::selectAttrFromWhereHandler_NoTarget(){
 
   return ret;
 
-}
+} 
 
 int RegexHandler::selectFromJoinHandler() {
   char sourceRelOneName[ATTR_SIZE];
