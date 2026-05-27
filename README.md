@@ -23,7 +23,7 @@ In addition to the standard NITCbase specifications, this project implements enh
 ## Architecture & Layered Implementation
 The codebase is structured into a modular, multi-layered architecture where each layer abstracts the complexity of the one below it:
 
-1. **Physical Layer:** Emulates a disk interface managing 8KB blocks.
+1. **Physical Layer:** Emulates a disk interface managing 2KB blocks.
 2. **Buffer Layer:** Handles fetching disk blocks into memory, managing dirty bits, and writing blocks back to the disk.
 3. **Cache Layer:** Maintains in-memory structures (`RelCache` and `AttrCache`) for open relations and their respective schema definitions.
 4. **B+ Tree Layer:** Manages B+ Tree indexing operations (`bPlusSearch`, `bPlusInsert`, `bPlusCreate`, `bPlusDestroy`) for `O(log n)` lookups.
@@ -48,22 +48,17 @@ This project systematically implements the database internals over 12 distinct s
 * **Stage 9: Selection & Projection** - Implementing fundamental relational algebra queries.
 * **Stage 10: B+ Tree Search** - Introducing B+ Tree data structures for optimized index lookups.
 * **Stage 11: Index Creation & Deletion** - Building and destroying B+ Trees dynamically for specified attributes.
-* **Stage 12: Equi-Join on Relations** - Combining two relations based on an equality condition, utilizing B+ Trees (if available) to reduce time complexity from `O(m*n)` to `O(m*log n + n)`.
+* **Stage 12: Equi-Join on Relations** - Combining two relations based on an equality condition, utilizing B+ Trees to reduce time complexity from `O(m*n)` to `O(m*log n + n)`.
 
 ---
-
-## Getting Started
-
-### Prerequisites
-* `g++` compiler (supports C++11 or higher)
-* `make` utility
 
 ### Building and Running
 ## Getting Started
 
 ### Prerequisites
-* `g++` compiler (supports C++11 or higher)
-* `make` utility
+** **Operating System:** Linux
+* **Compiler:** GNU `g++` (supports C++11 or higher)
+* **Build Tool:** `make` utility
 
 ### Build and Execution
 Follow these steps to set up the required directory structure, compile the database engine, and initialize the simulated file system.
